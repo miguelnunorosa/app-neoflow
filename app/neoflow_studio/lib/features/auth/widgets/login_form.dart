@@ -12,6 +12,7 @@ class LoginForm extends StatefulWidget {
 class _LoginFormState extends State<LoginForm> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  bool rememberMe = false;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +38,21 @@ class _LoginFormState extends State<LoginForm> {
               const SnackBar(content: Text("Login clicado")),
             );
           },
+        ),
+        // Memorizar login
+        Row(
+          children: [
+            Checkbox(
+              value: rememberMe,
+              activeColor: const Color(0xFF3A3735),
+              onChanged: (value) {
+                setState(() {
+                  rememberMe = value ?? false;
+                });
+              },
+            ),
+            const Text("Memorizar login"),
+          ],
         ),
       ],
     );

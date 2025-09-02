@@ -29,7 +29,7 @@ class LoginScreen extends StatelessWidget {
                 },
               ),
 
-              const SizedBox(height: 70),
+              const SizedBox(height: 120),
 
               const LoginForm(), // Formulário de login
             ],
