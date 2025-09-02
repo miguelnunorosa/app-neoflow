@@ -14,17 +14,24 @@ class LoginScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Logo
-            Image.asset(
-              'assets/images/logo.png',
-              height: 250,
-            ),
-              const SizedBox(height: 30),
+              Image.asset(
+                'assets/images/logo.png',
+                height: 200,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Text(
+                    "NeoFlow",
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF3A3735),
+                    ),
+                  );
+                },
+              ),
 
+              const SizedBox(height: 70),
 
-              const SizedBox(height: 50),
-
-              // Formulário de login
-              const LoginForm(),
+              const LoginForm(), // Formulário de login
             ],
           ),
         ),

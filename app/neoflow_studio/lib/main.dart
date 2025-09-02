@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:neoflow_studio/core/constants.dart';
 import 'features/auth/screens/login_screen.dart';
 
 void main() {
@@ -11,11 +12,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'NeoFlow - Agendamento de Aulas',
+      debugShowCheckedModeBanner: true,  //TODO: change this before release
+      title: 'NeoFlow',
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xFFF9F9F9),
-        primaryColor: const Color(0xFF3A3735),
+        primaryColor: APP_PRIMARY_COLOR,
         textTheme: const TextTheme(
           bodyMedium: TextStyle(color: Colors.black87),
         ),
@@ -24,11 +25,11 @@ class MyApp extends StatelessWidget {
           fillColor: Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF3A3735)),
+            borderSide: const BorderSide(color: APP_PRIMARY_COLOR),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF3A3735), width: 2),
+            borderSide: const BorderSide(color: APP_PRIMARY_COLOR, width: 2),
           ),
         ),
       ),

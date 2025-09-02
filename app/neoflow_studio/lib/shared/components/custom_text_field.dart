@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:neoflow_studio/core/constants.dart';
 
 class CustomTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -21,7 +22,7 @@ class CustomTextField extends StatelessWidget {
       obscureText: obscureText,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: icon != null ? Icon(icon, color: const Color(0xFF3A3735)) : null,
+        prefixIcon: icon != null ? Icon(icon, color: APP_PRIMARY_COLOR) : null,
       ),
     );
   }

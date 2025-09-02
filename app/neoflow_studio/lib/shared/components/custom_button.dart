@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:neoflow_studio/core/constants.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -17,7 +18,7 @@ class CustomButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF3A3735),
+          backgroundColor: APP_PRIMARY_COLOR,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
