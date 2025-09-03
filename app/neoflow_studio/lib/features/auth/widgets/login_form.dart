@@ -30,7 +30,7 @@ class _LoginFormState extends State<LoginForm> {
           icon: Icons.lock_outline,
           obscureText: true,
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 50),
         CustomButton(
           text: "Entrar",
           onPressed: () {

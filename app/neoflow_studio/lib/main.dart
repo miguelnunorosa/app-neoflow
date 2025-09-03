@@ -1,21 +1,31 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:neoflow_studio/core/constants.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'firebase_options.dart';
 
 void main() async {
+
+  //fullscreen mode
   WidgetsFlutterBinding.ensureInitialized();
-
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-
   SystemChrome.setSystemUIChangeCallback((systemOverlaysAreVisible) async {
     if (systemOverlaysAreVisible) {
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
   });
 
+  // Inicializar Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  //run/execute app
   runApp(const MyApp());
 }
+
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

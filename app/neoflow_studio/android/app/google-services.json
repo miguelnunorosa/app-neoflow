@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "46799906561",
+    "project_id": "app-neoflow",
+    "storage_bucket": "app-neoflow.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:46799906561:android:8d2ae84acf680652f85d00",
+        "android_client_info": {
+          "package_name": "net.miguelrosa.neoflow_studio"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWiZqwsO4dWQTn8N7fNh81qM1AIu7O8OM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
