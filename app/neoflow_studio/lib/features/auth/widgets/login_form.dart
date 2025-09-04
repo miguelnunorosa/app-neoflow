@@ -133,8 +133,9 @@ class _LoginFormState extends State<LoginForm> {
         const SizedBox(height: 28),
 
         CustomButton(
-          text: loading ? "A entrar..." : "Entrar",
-          onPressed: loading ? null : _handleLogin,
+          text: "Entrar",
+          loading: loading,
+          onPressed: _handleLogin,
         ),
         const SizedBox(height: 12),
 
