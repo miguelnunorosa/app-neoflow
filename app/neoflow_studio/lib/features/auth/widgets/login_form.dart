@@ -37,15 +37,25 @@ class _LoginFormState extends State<LoginForm> {
   }
 
   Future<void> _handleLogin() async {
+
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    // Validação de campos obrigatórios
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("⚠️ Preenche todos os campos obrigatórios")),
+      );
+      return; // não tenta fazer login
+    }
+
+
     setState(() => loading = true);
     try {
-      await _auth.signIn(
-        emailController.text.trim(),
-        passwordController.text.trim(),
-      );
+      await _auth.signIn(email, password);
 
       if (rememberMe) {
-        await LocalStorageService.setRememberedEmail(emailController.text.trim());
+        await LocalStorageService.setRememberedEmail(email);
       } else {
         await LocalStorageService.setRememberedEmail(null);
       }
