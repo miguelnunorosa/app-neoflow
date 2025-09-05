@@ -68,18 +68,12 @@ class _LoginFormState extends State<LoginForm> {
       // TODO: navegar para Home
     } on FirebaseAuthException catch (e) {
       String msg;
-      switch (e.code) {
-        case 'user-not-found':
-          msg = 'Utilizador não encontrado';
-          break;
-        case 'wrong-password':
-          msg = 'Password incorreta';
-          break;
-        case 'invalid-email':
-          msg = 'Email inválido';
-          break;
-        default:
-          msg = 'Erro: ${e.message}';
+      if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        msg = '⚠️ Utilizador ou password incorretos';
+      } else if (e.code == 'invalid-email') {
+        msg = '⚠️ Email inválido';
+      } else {
+        msg = 'Erro inesperado. Tenta novamente.';
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } finally {
