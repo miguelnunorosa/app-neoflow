@@ -3,12 +3,12 @@ import 'package:neoflow_studio/core/constants.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   const CustomButton({
     super.key,
     required this.text,
-    required this.onPressed,
+    required this.onPressed, required bool loading,
   });
 
   @override

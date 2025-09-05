@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:neoflow_studio/features/auth/widgets/login_form_logo.dart';
 import '../widgets/login_form.dart';
 
 class LoginScreen extends StatelessWidget {
@@ -13,23 +14,9 @@ class LoginScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo
-              Image.asset(
-                'assets/images/logo.png',
-                height: 200,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Text(
-                    "NeoFlow",
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF3A3735),
-                    ),
-                  );
-                },
-              ),
+              const LoginFormLogo(),
 
-              const SizedBox(height: 120),
+              const SizedBox(height: 150),
 
               const LoginForm(), // Formulário de login
             ],
