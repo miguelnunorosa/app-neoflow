@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../shared/components/app_menu.dart';
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -12,14 +14,15 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text("NeoFlow - Home"),
         actions: [
-          IconButton(
+          /*IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
             },
-          ),
+          ),*/
         ],
       ),
+      drawer: const AppMenu(),
       body: Center(
         child: Text("Bem-vindo, ${user?.email ?? 'Utilizador'}!"),
       ),
