@@ -1,0 +1,26 @@
+{
+  "profiles": {
+    "admin": {
+      "role": "admin",
+      "description": "Acesso total à aplicação",
+      "permissions": {
+        "manageUsers": true,
+        "viewSchedules": true,
+        "createSchedules": true,
+        "editSchedules": true,
+        "deleteSchedules": true
+      }
+    },
+    "utilizador": {
+      "role": "utilizador",
+      "description": "Pode apenas consultar e marcar sessões quando houver vagas",
+      "permissions": {
+        "manageUsers": false,
+        "viewSchedules": true,
+        "createSchedules": true,
+        "editSchedules": false,
+        "deleteSchedules": false
+      }
+    }
+  }
+}
