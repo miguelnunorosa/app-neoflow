@@ -19,11 +19,14 @@ class AppMenu extends StatelessWidget {
             decoration: const BoxDecoration(
               color: APP_PRIMARY_COLOR, // cor de fundo
             ),
+
             accountName: Text(
               user?.displayName ?? "Utilizador",
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
+
             accountEmail: Text(user?.email ?? "email não disponível"),
+
             currentAccountPicture: CircleAvatar(
               backgroundImage: user?.photoURL != null
                   ? NetworkImage(user!.photoURL!)
@@ -31,6 +34,7 @@ class AppMenu extends StatelessWidget {
               as ImageProvider,
               backgroundColor: Colors.white,
             ),
+
           ),
 
           // Centro - opções
@@ -64,8 +68,17 @@ class AppMenu extends StatelessWidget {
                     Navigator.pop(context);
                     // TODO: navegar para página de aulas anteriores
                   },
-
                 ),
+
+                ListTile(
+                  leading: const Icon(Icons.contacts),
+                  title: const Text("Contactos"),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // TODO: navegar para página de contactos
+                  },
+                ),
+
               ],
             ),
           ),
@@ -75,8 +88,8 @@ class AppMenu extends StatelessWidget {
             leading: const Icon(Icons.logout, color: APP_PRIMARY_COLOR),
             title: const Text("Sair"),
             onTap: () async {
-                await FirebaseAuth.instance.signOut();
-              },
+              await FirebaseAuth.instance.signOut();
+            },
           ),
         ],
       ),
