@@ -1,0 +1,68 @@
+name: Build APK on release_app
+
+on:
+  push:
+    branches: [ release_app ]
+
+permissions:
+  contents: write  # para commitar o APK no repo
+
+jobs:
+  build-android-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version
+        working-directory: app/neoflow_studio
+        run: flutter --version
+
+      - name: Install dependencies
+        working-directory: app/neoflow_studio
+        run: flutter pub get
+
+      # Gera APK (debug). Se quiseres "release" assinado, vê as notas abaixo.
+      - name: Build APK (debug)
+        working-directory: app/neoflow_studio
+        run: flutter build apk --debug
+
+      - name: Prepare release filename and folder
+        id: rel
+        shell: bash
+        run: |
+          TS=$(date +'%Y%m%d-%H%M')
+          echo "ts=$TS" >> $GITHUB_OUTPUT
+          mkdir -p app/releases
+          # remover APKs antigos
+          rm -f app/releases/*.apk
+
+      - name: Move APK to app/releases with timestamped name
+        run: |
+          cp app/neoflow_studio/build/app/outputs/flutter-apk/app-debug.apk \
+             "app/releases/app_release_v${{ steps.rel.outputs.ts }}.apk"
+
+      - name: Commit APK into repository (single file policy)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/releases/
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "CI: APK app_release_v${{ steps.rel.outputs.ts }}.apk"
+            git push
+          fi
