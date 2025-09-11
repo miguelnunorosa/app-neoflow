@@ -31,7 +31,7 @@ class AppMenu extends StatelessWidget {
               final ua = snap.data;
               final name = (ua == null || ua.displayName.isEmpty)
                   ? 'Utilizador'
-                  : ua.firstName + ' ' + ua.lastName;
+                  : '${ua.firstName} ${ua.lastName}';
               final email = ua?.email ?? 'email não disponível';
               final photoUrl = ua?.photoUrl;
 
