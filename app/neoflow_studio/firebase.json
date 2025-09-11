@@ -1,1 +1,35 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"app-neoflow","appId":"1:46799906561:android:8d2ae84acf680652f85d00","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"app-neoflow","configurations":{"android":"1:46799906561:android:8d2ae84acf680652f85d00","ios":"1:46799906561:ios:53b273ce61ae5228f85d00"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "app-neoflow",
+          "appId": "1:46799906561:android:8d2ae84acf680652f85d00",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "app-neoflow",
+          "configurations": {
+            "android": "1:46799906561:android:8d2ae84acf680652f85d00",
+            "ios": "1:46799906561:ios:53b273ce61ae5228f85d00"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ]
+}
