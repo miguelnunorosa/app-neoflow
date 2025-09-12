@@ -1,4 +1,3 @@
-
 class ClassTemplate {
   final String id;
   final String name;
@@ -31,7 +30,7 @@ class ClassTemplate {
 class SessionVM {
   final String sessionId;
   final String name;
-  final DateTime date;         // dia desta sessão (data concreta)
+  final DateTime date;         // data concreta desta sessão
   final String startTime;      // "HH:mm"
   final int capacity;
   final int confirmedCount;

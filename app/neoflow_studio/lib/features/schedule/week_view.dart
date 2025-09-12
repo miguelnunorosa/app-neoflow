@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import 'schedule_repo.dart';
 import 'models.dart';
 import 'date_utils.dart';
@@ -11,36 +12,42 @@ class WeekScheduleView extends StatefulWidget {
   State<WeekScheduleView> createState() => _WeekScheduleViewState();
 }
 
-class _WeekScheduleViewState extends State<WeekScheduleView> with SingleTickerProviderStateMixin {
+class _WeekScheduleViewState extends State<WeekScheduleView>
+    with SingleTickerProviderStateMixin {
   late DateTime _monday;
   late TabController _tab;
   final _repo = ScheduleRepo();
+
   Future<List<SessionVM>>? _future;
 
   @override
   void initState() {
     super.initState();
     _monday = startOfWeek(DateTime.now());
-    _tab = TabController(length: 7, vsync: this, initialIndex: DateTime.now().weekday - 1);
+    _tab = TabController(
+      length: 7,
+      vsync: this,
+      initialIndex: DateTime.now().weekday - 1,
+    );
     _load();
   }
 
   void _load() {
-    setState(() => _future = _repo.getWeekSessions(_monday));
+    final fut = _repo.getWeekSessions(_monday); // calcula fora
+    if (!mounted) return;
+    setState(() {
+      _future = fut; // atribuição síncrona
+    });
   }
 
   void _prevWeek() {
-    setState(() {
-      _monday = _monday.subtract(const Duration(days: 7));
-      _load();
-    });
+    _monday = _monday.subtract(const Duration(days: 7));
+    _load();
   }
 
   void _nextWeek() {
-    setState(() {
-      _monday = _monday.add(const Duration(days: 7));
-      _load();
-    });
+    _monday = _monday.add(const Duration(days: 7));
+    _load();
   }
 
   @override
@@ -85,7 +92,7 @@ class _WeekScheduleViewState extends State<WeekScheduleView> with SingleTickerPr
           // separa por dia
           final perDay = List.generate(7, (i) => <SessionVM>[]);
           for (final s in all) {
-            final idx = s.date.weekday - 1; // 0..6
+            final idx = s.date.weekday - 1;
             perDay[idx].add(s);
           }
 
@@ -117,18 +124,20 @@ class _WeekScheduleViewState extends State<WeekScheduleView> with SingleTickerPr
   }
 
   Future<void> _onBook(SessionVM s) async {
-    // TODO: chamar a tua função bookSession(sessionId, uid)
+    // TODO: integrar com a tua função de reserva (transaction em Firestore)
     // await bookSession(s.sessionId, FirebaseAuth.instance.currentUser!.uid);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Reserva enviada para ${s.name} ${formatCardDate(s.date, s.startTime)}')),
+      SnackBar(content: Text('Reserva enviada: ${s.name} — ${formatCardDate(s.date, s.startTime)}')),
     );
     _load(); // refresh
   }
 
   Future<void> _onCancel(SessionVM s) async {
-    // TODO: chamar a tua função cancelBooking(sessionId, uid)
+    // TODO: integrar com a tua função de cancelamento
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Cancelamento enviado para ${s.name}')),
+      SnackBar(content: Text('Cancelamento enviado: ${s.name}')),
     );
     _load();
   }
@@ -148,7 +157,7 @@ class _SessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subtitle = formatCardDate(session.date, session.startTime);
-    final remaining = session.remaining; // vagas restantes
+    final remaining = session.remaining;
     final wait = session.waitlistCount;
 
     return Card(
@@ -158,13 +167,11 @@ class _SessionCard extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         child: Row(
           children: [
-            // “avatar” do horário
             CircleAvatar(
               radius: 24,
               child: Text(session.startTime, style: const TextStyle(fontSize: 12)),
             ),
             const SizedBox(width: 12),
-            // texto
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,7 +182,7 @@ class _SessionCard extends StatelessWidget {
                   Text(subtitle, style: TextStyle(color: Colors.grey[700])),
                   const SizedBox(height: 6),
                   Text(
-                    '$remaining vagas restantes (${wait} em espera)',
+                    '$remaining vagas restantes ($wait em espera)',
                     style: TextStyle(
                       color: remaining > 0 ? Colors.green[700] : Colors.orange[800],
                       fontWeight: FontWeight.w600,
@@ -185,12 +192,11 @@ class _SessionCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // ações (exemplo simples)
             Column(
               children: [
                 ElevatedButton(
-                  onPressed: remaining > 0 ? onBook : onBook, // mesma ação (entra em espera se cheio)
-                  child: Text(remaining > 0 ? 'Reservar' : 'Esperar'),
+                  onPressed: onBook, // se cheio, entra em espera no mesmo botão
+                  child: Text(remaining > 0 ? 'Reservar' : 'Entrar Lista Espera'),
                 ),
                 TextButton(
                   onPressed: onCancel,

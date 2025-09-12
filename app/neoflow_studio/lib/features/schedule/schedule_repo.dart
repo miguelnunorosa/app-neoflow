@@ -10,17 +10,15 @@ class ScheduleRepo {
         .collection('classTemplates')
         .where('active', isEqualTo: true)
         .get();
-    return q.docs
-        .map((d) => ClassTemplate.fromMap(d.id, d.data()))
-        .toList();
+    return q.docs.map((d) => ClassTemplate.fromMap(d.id, d.data())).toList();
   }
 
   /// Devolve as sessões (VMs) para a semana que começa em [monday] (inclusive).
   Future<List<SessionVM>> getWeekSessions(DateTime monday) async {
     final templates = await _fetchActiveTemplates();
 
-    // mapa weekday -> data desta semana
-    final days = List.generate(7, (i) => monday.add(Duration(days: i))); // seg..dom
+    // 7 dias: seg..dom
+    final days = List.generate(7, (i) => monday.add(Duration(days: i)));
 
     final futures = <Future<SessionVM>>[];
 
@@ -47,7 +45,6 @@ class ScheduleRepo {
     }
 
     final list = await Future.wait(futures);
-    // ordena por data + hora
     list.sort((a, b) {
       final cmpDate = a.date.compareTo(b.date);
       if (cmpDate != 0) return cmpDate;

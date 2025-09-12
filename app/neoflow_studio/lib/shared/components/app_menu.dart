@@ -4,21 +4,20 @@ import 'package:neoflow_studio/core/constants.dart';
 
 import '../../data/user_repo.dart';
 import '../../models/user_account.dart';
+import '../../features/schedule/week_view.dart';
 
 class AppMenu extends StatelessWidget {
   const AppMenu({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final repo = UserRepo();
-
     return Drawer(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // TOPO — header com dados do Firestore
+          // Header com dados do Firestore
           StreamBuilder<UserAccount?>(
-            stream: repo.currentUserStream(),
+            stream: UserRepo().currentUserStream(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const SizedBox(
@@ -26,18 +25,16 @@ class AppMenu extends StatelessWidget {
                   child: Center(child: CircularProgressIndicator()),
                 );
               }
-
-              // fallback se ainda não houver doc
               final ua = snap.data;
               final name = (ua == null || ua.displayName.isEmpty)
                   ? 'Utilizador'
-                  : '${ua.firstName} ${ua.lastName}';
+                  : ua.displayName;
               final email = ua?.email ?? 'email não disponível';
               final photoUrl = ua?.photoUrl;
 
               final imgProvider = (photoUrl != null && photoUrl.isNotEmpty)
                   ? NetworkImage(photoUrl) as ImageProvider
-                  : const AssetImage('assets/images/defaultUserPhoto.png');
+                  : const AssetImage('assets/images/profile.png');
 
               return UserAccountsDrawerHeader(
                 decoration: const BoxDecoration(color: APP_PRIMARY_COLOR),
@@ -49,15 +46,14 @@ class AppMenu extends StatelessWidget {
                 currentAccountPicture: CircleAvatar(
                   backgroundImage: imgProvider,
                   backgroundColor: Colors.white,
-                  /*child: (photoUrl == null || photoUrl.isEmpty)
+                  child: (photoUrl == null || photoUrl.isEmpty)
                       ? Text(_initials(name),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ))
-                      : null,*/
+                      : null,
                 ),
-                // badge discreta se a conta estiver inativa
                 otherAccountsPictures: [
                   if (ua != null && ua.isActive == false)
                     const Tooltip(
@@ -69,7 +65,7 @@ class AppMenu extends StatelessWidget {
             },
           ),
 
-          // CENTRO — opções
+          // Opções
           Expanded(
             child: ListView(
               padding: const EdgeInsets.only(top: 20),
@@ -79,23 +75,47 @@ class AppMenu extends StatelessWidget {
                   title: const Text('Dados Pessoais'),
                   onTap: () {
                     Navigator.pop(context);
-                    // TODO: navegar para a página de perfil/edição
+                    // TODO: navegar para página de perfil/edição
                   },
                 ),
-                ListTile(
-                  leading: const Icon(Icons.calendar_today),
-                  title: const Text('Agendamento'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // TODO: navegar para a página de agendamentos
+
+                // Agendamento (bloqueado se a conta estiver inativa)
+                StreamBuilder<UserAccount?>(
+                  stream: UserRepo().currentUserStream(),
+                  builder: (context, snap) {
+                    final isActive = snap.data?.isActive ?? false;
+                    return ListTile(
+                      leading: const Icon(Icons.calendar_today),
+                      title: const Text('Agendamento'),
+                      subtitle: isActive ? null : const Text(
+                        'Conta inativa',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      enabled: isActive,
+                      onTap: isActive
+                          ? () {
+                        Navigator.pop(context);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const WeekScheduleView()),
+                        );
+                      }
+                          : () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('A tua conta está inativa. Contacta o estúdio.'),
+                          ),
+                        );
+                      },
+                    );
                   },
                 ),
+
                 ListTile(
                   leading: const Icon(Icons.history),
                   title: const Text('Aulas anteriores'),
                   onTap: () {
                     Navigator.pop(context);
-                    // TODO: navegar para a página de histórico
+                    // TODO: navegar para histórico
                   },
                 ),
                 ListTile(
@@ -103,19 +123,19 @@ class AppMenu extends StatelessWidget {
                   title: const Text('Contactos'),
                   onTap: () {
                     Navigator.pop(context);
-                    // TODO: navegar para a página de contactos
+                    // TODO: navegar para contactos
                   },
                 ),
               ],
             ),
           ),
 
-          // FUNDO — sair
+          // Sair
           ListTile(
             leading: const Icon(Icons.logout, color: APP_PRIMARY_COLOR),
             title: const Text('Sair'),
             onTap: () async {
-              Navigator.pop(context); // fecha o drawer primeiro
+              Navigator.pop(context);
               await FirebaseAuth.instance.signOut();
             },
           ),
