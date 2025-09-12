@@ -49,13 +49,13 @@ class AppMenu extends StatelessWidget {
                 currentAccountPicture: CircleAvatar(
                   backgroundImage: imgProvider,
                   backgroundColor: Colors.white,
-                  child: (photoUrl == null || photoUrl.isEmpty)
+                  /*child: (photoUrl == null || photoUrl.isEmpty)
                       ? Text(_initials(name),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ))
-                      : null,
+                      : null,*/
                 ),
                 // badge discreta se a conta estiver inativa
                 otherAccountsPictures: [
