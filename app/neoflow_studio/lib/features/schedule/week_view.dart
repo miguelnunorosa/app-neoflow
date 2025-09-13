@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'schedule_repo.dart';
 import 'models.dart';
 import 'date_utils.dart';
-import 'class_booking_service.dart'; // <-- usa o service plano
+import 'class_booking_service.dart';
 
 class WeekScheduleView extends StatefulWidget {
   const WeekScheduleView({super.key});
@@ -147,6 +147,9 @@ class _TemplateCard extends StatelessWidget {
       userId: uid,
     );
 
+    // Bloquear inscrições no passado (data/hora já decorridas)
+    final isPastSession = _isSessionInThePast(dateOfThisWeekDay, template.startTime);
+
     return StreamBuilder<String?>(
       stream: status$,
       builder: (context, s) {
@@ -174,11 +177,19 @@ class _TemplateCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(subtitle, style: TextStyle(color: Colors.grey[700])),
                       const SizedBox(height: 6),
-                      if (status != null)
+                      if (isPastSession)
+                        const Text(
+                          'Realizada',
+                          style: TextStyle(
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      else if (status != null)
                         Text(
                           '✅ Inscrito',
                           style: TextStyle(
-                            color: Colors.green[700],
+                            color: Colors.green,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -189,52 +200,60 @@ class _TemplateCard extends StatelessWidget {
                 // Ações
                 Column(
                   children: [
-                    if (uid != null && status == null)
+                    // Se a sessão já passou: mostrar botão desativado estático
+                    if (isPastSession)
                       ElevatedButton(
-                        onPressed: () async {
-                          try {
-                            await svc.createOrConfirmBooking(
-                              template: template,
-                              date: dateOfThisWeekDay,
-                              userId: uid,
-                            );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Inscrição criada.')),
+                        onPressed: null, // completamente inativo
+                        child: const Text('Encerrada'),
+                      )
+                    else ...[
+                      if (uid != null && status == null)
+                        ElevatedButton(
+                          onPressed: () async {
+                            try {
+                              await svc.createOrConfirmBooking(
+                                template: template,
+                                date: dateOfThisWeekDay,
+                                userId: uid,
                               );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Inscrição criada.')),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(SnackBar(content: Text('$e')));
+                              }
                             }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(SnackBar(content: Text('$e')));
-                            }
-                          }
-                        },
-                        child: const Text('Inscrever'),
-                      ),
-                    if (uid != null && status != null)
-                      TextButton(
-                        onPressed: () async {
-                          try {
-                            await svc.cancelBooking(
-                              template: template,
-                              date: dateOfThisWeekDay,
-                              userId: uid,
-                            );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Inscrição cancelada.')),
+                          },
+                          child: const Text('Inscrever'),
+                        ),
+                      if (uid != null && status != null)
+                        TextButton(
+                          onPressed: () async {
+                            try {
+                              await svc.cancelBooking(
+                                template: template,
+                                date: dateOfThisWeekDay,
+                                userId: uid,
                               );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Inscrição cancelada.')),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(SnackBar(content: Text('$e')));
+                              }
                             }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(SnackBar(content: Text('$e')));
-                            }
-                          }
-                        },
-                        child: const Text('Cancelar'),
-                      ),
+                          },
+                          child: const Text('Cancelar'),
+                        ),
+                    ],
                   ],
                 ),
               ],
@@ -245,9 +264,21 @@ class _TemplateCard extends StatelessWidget {
     );
   }
 
+  // "Seg, 16/09/2025 | 18:30"
   String _formatCardDate(DateTime d, String time) {
-    final weekdayShort = DateFormat.E('pt_PT').format(d); // Seg, Ter, ...
+    final weekdayShort = DateFormat.E('pt_PT').format(d);
     final dayMonth = DateFormat('dd/MM/yyyy').format(d);
     return '$weekdayShort, $dayMonth | $time';
+  }
+
+  /// Considera passada se a combinação data+hora já é anterior ao agora.
+  bool _isSessionInThePast(DateTime day, String hhmm) {
+    // hhmm = "18:30"
+    final parts = hhmm.split(':');
+    final h = int.tryParse(parts.elementAt(0)) ?? 0;
+    final m = int.tryParse(parts.elementAt(1)) ?? 0;
+    final sessionDateTime = DateTime(day.year, day.month, day.day, h, m);
+    final now = DateTime.now();
+    return sessionDateTime.isBefore(now);
   }
 }
