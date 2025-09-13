@@ -8,8 +8,6 @@ import '../../models/user_account.dart';
 // Screens
 import '../../features/schedule/week_view.dart';
 import '../../features/schedule/my_bookings_view.dart';
-// TODO: quando tiveres o ecrã de gestão, importa-o aqui.
-// import '../../features/admin/class_templates_admin_view.dart';
 
 class AppMenu extends StatelessWidget {
   const AppMenu({super.key});
@@ -42,9 +40,18 @@ class AppMenu extends StatelessWidget {
                 );
               }
               final ua = snap.data;
-              final name = (ua == null || ua.displayName.isEmpty)
-                  ? 'Utilizador'
-                  : ua.firstName;
+
+              // Nome preferencial: firstName + lastName; fallback -> displayName; fallback final -> "Utilizador"
+              final fullName = () {
+                if (ua == null) return 'Utilizador';
+                final fn = (ua.firstName ?? '').trim();
+                final ln = (ua.lastName ?? '').trim();
+                final joined = [fn, ln].where((p) => p.isNotEmpty).join(' ');
+                if (joined.isNotEmpty) return joined;
+                if (ua.displayName.isNotEmpty) return ua.displayName;
+                return 'Utilizador';
+              }();
+
               final email = ua?.email ?? 'email não disponível';
               final photoUrl = ua?.photoUrl;
 
@@ -55,7 +62,7 @@ class AppMenu extends StatelessWidget {
               return UserAccountsDrawerHeader(
                 decoration: const BoxDecoration(color: APP_PRIMARY_COLOR),
                 accountName: Text(
-                  name,
+                  fullName,
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 accountEmail: Text(email),
@@ -64,7 +71,7 @@ class AppMenu extends StatelessWidget {
                   backgroundColor: Colors.white,
                   child: (photoUrl == null || photoUrl.isEmpty)
                       ? Text(
-                    _initials(name),
+                    _initials(fullName),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
@@ -137,7 +144,7 @@ class AppMenu extends StatelessWidget {
 
                 ListTile(
                   leading: const Icon(Icons.event_note),
-                  // (Se preferires renomear para 'Minhas inscrições')
+                  // Dica: podes renomear para 'Minhas inscrições'
                   title: const Text('Aulas Anteriores'),
                   onTap: () {
                     Navigator.pop(context);
@@ -158,7 +165,7 @@ class AppMenu extends StatelessWidget {
 
                 const Divider(),
 
-                // ===== Secção ADMIN (via UserRepo().isAdmin(uid)) =====
+                // ===== Secção ADMIN via UserRepo().isAdmin(uid) =====
                 if (uid != null)
                   FutureBuilder<bool>(
                     future: repo.isAdmin(uid),
@@ -184,9 +191,6 @@ class AppMenu extends StatelessWidget {
                             onTap: () {
                               Navigator.pop(context);
                               // TODO: abrir ecrã de gestão de classTemplates
-                              // Navigator.of(context).push(
-                              //   MaterialPageRoute(builder: (_) => const ClassTemplatesAdminView()),
-                              // );
                             },
                           ),
                         ],

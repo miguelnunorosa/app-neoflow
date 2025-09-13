@@ -1,50 +1,56 @@
+// lib/features/schedule/models.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ClassTemplate {
   final String id;
   final String name;
-  final int weekday;       // 1=Seg ... 7=Dom
-  final String startTime;  // "HH:mm"
-  final int durationMin;
-  final int capacity;
+  final int weekday;      // 1..7 (1=Seg, 7=Dom)
+  final String startTime; // "HH:mm"
+  final int capacity;     // default 10 se não existir
+  final bool isActive;
 
   ClassTemplate({
     required this.id,
     required this.name,
     required this.weekday,
     required this.startTime,
-    required this.durationMin,
     required this.capacity,
+    required this.isActive,
   });
 
-  factory ClassTemplate.fromMap(String id, Map<String, dynamic> m) {
+  factory ClassTemplate.fromFirestore(
+      DocumentSnapshot<Map<String, dynamic>> doc,
+      ) {
+    final data = doc.data() ?? {};
+
+    // LER APENAS 'weekday' (obrigatório e numérico)
+    final wdRaw = data['weekday'];
+    if (wdRaw is! int) {
+      throw StateError(
+        "classTemplates/${doc.id} sem 'weekday' (int)."
+            " Define 1..7 (1=Seg .. 7=Dom).",
+      );
+    }
+    final wd = wdRaw.clamp(1, 7);
+
     return ClassTemplate(
-      id: id,
-      name: (m['name'] ?? '') as String,
-      weekday: (m['weekday'] ?? 1) as int,
-      startTime: (m['startTime'] ?? '18:30') as String,
-      durationMin: (m['durationMin'] ?? 45) as int,
-      capacity: (m['capacity'] ?? 10) as int,
+      id: doc.id,
+      name: (data['name'] ?? '') as String,
+      weekday: wd,
+      startTime: (data['startTime'] ?? '00:00') as String,
+      capacity: (data['capacity'] is int) ? data['capacity'] as int : 10,
+      // aceita 'isActive' ou (caso antigo) 'ative'
+      isActive: (data['isActive'] is bool)
+          ? data['isActive'] as bool
+          : (data['ative'] is bool ? data['ative'] as bool : true),
     );
   }
-}
 
-class SessionVM {
-  final String sessionId;
-  final String name;
-  final DateTime date;         // data concreta desta sessão
-  final String startTime;      // "HH:mm"
-  final int capacity;
-  final int confirmedCount;
-  final int waitlistCount;
-
-  int get remaining => (capacity - confirmedCount).clamp(0, capacity);
-
-  SessionVM({
-    required this.sessionId,
-    required this.name,
-    required this.date,
-    required this.startTime,
-    required this.capacity,
-    required this.confirmedCount,
-    required this.waitlistCount,
-  });
+  Map<String, dynamic> toMap() => {
+    'name': name,
+    'weekday': weekday,      // grava sempre 'weekday'
+    'startTime': startTime,
+    'capacity': capacity,
+    'isActive': isActive,
+  };
 }
