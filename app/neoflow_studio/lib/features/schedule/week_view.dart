@@ -18,7 +18,7 @@ class _WeekScheduleViewState extends State<WeekScheduleView>
   late TabController _tab;
   final _repo = ScheduleRepo();
 
-  Future<List<SessionVM>>? _future;
+  Future<List<ClassTemplate>>? _future;
 
   @override
   void initState() {
@@ -33,21 +33,21 @@ class _WeekScheduleViewState extends State<WeekScheduleView>
   }
 
   void _load() {
-    final fut = _repo.getWeekSessions(_monday); // calcula fora
+    final fut = _repo.fetchActiveTemplates();
     if (!mounted) return;
     setState(() {
-      _future = fut; // atribuição síncrona
+      _future = fut;
     });
   }
 
   void _prevWeek() {
     _monday = _monday.subtract(const Duration(days: 7));
-    _load();
+    setState(() {}); // só para refazer as datas mostradas
   }
 
   void _nextWeek() {
     _monday = _monday.add(const Duration(days: 7));
-    _load();
+    setState(() {});
   }
 
   @override
@@ -78,7 +78,7 @@ class _WeekScheduleViewState extends State<WeekScheduleView>
           }),
         ),
       ),
-      body: FutureBuilder<List<SessionVM>>(
+      body: FutureBuilder<List<ClassTemplate>>(
         future: _future,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
@@ -87,19 +87,20 @@ class _WeekScheduleViewState extends State<WeekScheduleView>
           if (snap.hasError) {
             return Center(child: Text('Erro: ${snap.error}'));
           }
-          final all = snap.data ?? [];
+          final templates = snap.data ?? [];
 
-          // separa por dia
-          final perDay = List.generate(7, (i) => <SessionVM>[]);
-          for (final s in all) {
-            final idx = s.date.weekday - 1;
-            perDay[idx].add(s);
+          // separa por weekday (1..7)
+          final byDay = List.generate(7, (i) => <ClassTemplate>[]);
+          for (final t in templates) {
+            final idx = (t.weekday.clamp(1, 7)) - 1;
+            byDay[idx].add(t);
           }
 
           return TabBarView(
             controller: _tab,
             children: List.generate(7, (i) {
-              final list = perDay[i];
+              final d = days[i];
+              final list = byDay[i];
               if (list.isEmpty) {
                 return const Center(child: Text('Sem aulas neste dia'));
               }
@@ -108,12 +109,8 @@ class _WeekScheduleViewState extends State<WeekScheduleView>
                 itemCount: list.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, idx) {
-                  final s = list[idx];
-                  return _SessionCard(
-                    session: s,
-                    onBook: () => _onBook(s),
-                    onCancel: () => _onCancel(s),
-                  );
+                  final t = list[idx];
+                  return _TemplateCard(template: t, dateOfThisWeekDay: d);
                 },
               );
             }),
@@ -122,43 +119,20 @@ class _WeekScheduleViewState extends State<WeekScheduleView>
       ),
     );
   }
-
-  Future<void> _onBook(SessionVM s) async {
-    // TODO: integrar com a tua função de reserva (transaction em Firestore)
-    // await bookSession(s.sessionId, FirebaseAuth.instance.currentUser!.uid);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Reserva enviada: ${s.name} — ${formatCardDate(s.date, s.startTime)}')),
-    );
-    _load(); // refresh
-  }
-
-  Future<void> _onCancel(SessionVM s) async {
-    // TODO: integrar com a tua função de cancelamento
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Cancelamento enviado: ${s.name}')),
-    );
-    _load();
-  }
 }
 
-class _SessionCard extends StatelessWidget {
-  const _SessionCard({
-    required this.session,
-    required this.onBook,
-    required this.onCancel,
+class _TemplateCard extends StatelessWidget {
+  const _TemplateCard({
+    required this.template,
+    required this.dateOfThisWeekDay,
   });
 
-  final SessionVM session;
-  final VoidCallback onBook;
-  final VoidCallback onCancel;
+  final ClassTemplate template;
+  final DateTime dateOfThisWeekDay;
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = formatCardDate(session.date, session.startTime);
-    final remaining = session.remaining;
-    final wait = session.waitlistCount;
+    final subtitle = _formatCardDate(dateOfThisWeekDay, template.startTime);
 
     return Card(
       elevation: 2,
@@ -169,44 +143,37 @@ class _SessionCard extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 24,
-              child: Text(session.startTime, style: const TextStyle(fontSize: 12)),
+              child: Text(template.startTime, style: const TextStyle(fontSize: 12)),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(session.name,
+                  Text(template.name,
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text(subtitle, style: TextStyle(color: Colors.grey[700])),
                   const SizedBox(height: 6),
-                  Text(
-                    '$remaining vagas restantes ($wait em espera)',
-                    style: TextStyle(
-                      color: remaining > 0 ? Colors.green[700] : Colors.orange[800],
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  // podes mostrar capacidade se tiveres no template:
+                  if (template.capacity case final cap?)
+                    Text('Capacidade: $cap'),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            Column(
-              children: [
-                ElevatedButton(
-                  onPressed: onBook, // se cheio, entra em espera no mesmo botão
-                  child: Text(remaining > 0 ? 'Reservar' : 'Entrar Lista Espera'),
-                ),
-                TextButton(
-                  onPressed: onCancel,
-                  child: const Text('Cancelar'),
-                ),
-              ],
-            ),
+            // por agora só mostramos; quando ligares reservas, mete os botões aqui
+            Icon(Icons.event_available, color: Colors.green[700]),
           ],
         ),
       ),
     );
+  }
+
+  String _formatCardDate(DateTime d, String time) {
+    final weekdayShort = DateFormat.E('pt_PT').format(d); // Seg, Ter, ...
+    final dayMonth = DateFormat('dd/MM/yyyy').format(d);
+    return '$weekdayShort, $dayMonth | $time';
+    // se preferires sem data (só hora fixa), troca por: 'Todas as $time'
   }
 }
