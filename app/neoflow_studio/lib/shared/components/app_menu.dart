@@ -57,7 +57,7 @@ class AppMenu extends StatelessWidget {
 
               final imgProvider = (photoUrl != null && photoUrl.isNotEmpty)
                   ? NetworkImage(photoUrl) as ImageProvider
-                  : const AssetImage('assets/images/profile.png');
+                  : const AssetImage('assets/images/defaultUserPhoto.png');
 
               return UserAccountsDrawerHeader(
                 decoration: const BoxDecoration(color: APP_PRIMARY_COLOR),
@@ -70,8 +70,7 @@ class AppMenu extends StatelessWidget {
                   backgroundImage: imgProvider,
                   backgroundColor: Colors.white,
                   child: (photoUrl == null || photoUrl.isEmpty)
-                      ? Text(
-                    _initials(fullName),
+                      ? Text('',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,

@@ -30,34 +30,46 @@ class ClassBookingService {
   }
 
   /// Cria (ou confirma) inscrição do utilizador para a sessão.
-  /// Regras exigem: userId == auth.uid e sessionAt (timestamp).
+  /// Regras exigem: userId == auth.uid e sessionAt (timestamp) no CREATE.
+  /// Se o doc já existir (ex: foi cancelado antes), faz UPDATE só de status/cancelledAt,
+  /// que é o que as regras permitem.
   Future<void> createOrConfirmBooking({
     required ClassTemplate template,
     required DateTime date,
     required String userId,
   }) async {
-    // construir sessionAt a partir de date + startTime ("HH:mm")
-    final parts = template.startTime.split(':');
-    final h = int.tryParse(parts.elementAt(0)) ?? 0;
-    final m = int.tryParse(parts.elementAt(1)) ?? 0;
-    final sessionAt = DateTime(date.year, date.month, date.day, h, m);
-
     final ref = bookingRef(template, date, userId);
+    final snap = await ref.get();
 
-    await ref.set({
-      'userId': userId,
-      'classTemplateId': template.id,
-      'className': template.name,
-      'date': yyyy_mm_dd(date),     // "YYYY-MM-DD"
-      'time': template.startTime,   // "HH:mm"
-      'sessionAt': Timestamp.fromDate(sessionAt),
-      'status': 'confirmed',
-      'createdAt': FieldValue.serverTimestamp(),
-      // extras úteis
-      'weekday': template.weekday,
-      'capacity': template.capacity,
-      'durationMin': template.durationMin,
-    }, SetOptions(merge: true));
+    if (!snap.exists) {
+      // --- CREATE (doc novo) ---
+      final parts = template.startTime.split(':');
+      final h = int.tryParse(parts.elementAt(0)) ?? 0;
+      final m = int.tryParse(parts.elementAt(1)) ?? 0;
+      final sessionAt = DateTime(date.year, date.month, date.day, h, m);
+
+      await ref.set({
+        'userId': userId,
+        'classTemplateId': template.id,
+        'className': template.name,
+        'date': yyyy_mm_dd(date),     // "YYYY-MM-DD"
+        'time': template.startTime,   // "HH:mm"
+        'sessionAt': Timestamp.fromDate(sessionAt),
+        'status': 'confirmed',
+        'createdAt': FieldValue.serverTimestamp(),
+        // extras úteis
+        'weekday': template.weekday,
+        'capacity': template.capacity,
+        'durationMin': template.durationMin,
+      }, SetOptions(merge: true));
+    } else {
+      // --- UPDATE (reinscrição) ---
+      // Só altera o que as regras permitem: status/cancelledAt
+      await ref.update({
+        'status': 'confirmed',
+        'cancelledAt': FieldValue.delete(),
+      });
+    }
   }
 
   /// Cancela a inscrição do utilizador para a sessão (via objeto).
