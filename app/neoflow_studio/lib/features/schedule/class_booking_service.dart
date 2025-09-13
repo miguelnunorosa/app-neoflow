@@ -1,149 +1,134 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'models.dart';
 import 'date_utils.dart';
 
-/// Service para gerir inscrições na coleção "classBooking" (estrutura plana).
-/// - Cada documento representa UMA inscrição de um utilizador numa aula (template) numa data.
-/// - ID determinístico para evitar duplicados: {templateId}_{YYYY-MM-DD}_{userId}
 class ClassBookingService {
-  ClassBookingService({FirebaseFirestore? db})
-      : _db = db ?? FirebaseFirestore.instance;
+  final _db = FirebaseFirestore.instance;
 
-  final FirebaseFirestore _db;
+  /// ID do documento em classBooking (plano)
+  String bookingDocId(ClassTemplate t, DateTime day, String uid) {
+    return '${t.id}_${yyyy_mm_dd(day)}_$uid';
+    // ex.: abc123_2025-09-13_uid
+  }
 
-  /// Gera um ID único e determinístico por (template + data + utilizador)
-  String bookingId({
+  /// Mesmo padrão, mas sem precisar do objeto template
+  String bookingDocIdFromParts({
     required String templateId,
-    required DateTime date,
-    required String userId,
-  }) =>
-      '${templateId}_${yyyy_mm_dd(date)}_$userId';
-
-  /// Referência ao documento em `classBooking/{bookingId}`
-  DocumentReference<Map<String, dynamic>> _bookingRef({
-    required String templateId,
-    required DateTime date,
-    required String userId,
+    required String dateStr, // "YYYY-MM-DD"
+    required String uid,
   }) {
-    final id = bookingId(templateId: templateId, date: date, userId: userId);
-    return _db.collection('classBooking').doc(id);
+    return '${templateId}_${dateStr}_$uid';
   }
 
-  /// Junta date + startTime -> DateTime (local)
-  DateTime _sessionDateTime(DateTime date, String hhmm) {
-    final parts = hhmm.split(':');
-    final h = int.tryParse(parts.elementAt(0)) ?? 0;
-    final m = int.tryParse(parts.elementAt(1)) ?? 0;
-    return DateTime(date.year, date.month, date.day, h, m);
+  DocumentReference<Map<String, dynamic>> bookingRef(
+      ClassTemplate t,
+      DateTime day,
+      String uid,
+      ) {
+    return _db.collection('classBooking').doc(bookingDocId(t, day, uid));
   }
 
-  /// Cria (ou reativa) a inscrição do utilizador para o template na data.
-  /// - status inicial: "confirmed" (nesta versão simples não há lista de espera)
-  /// - grava também `sessionAt` (Timestamp) para regras de cancelamento
+  /// Cria (ou confirma) inscrição do utilizador para a sessão.
+  /// Regras exigem: userId == auth.uid e sessionAt (timestamp).
   Future<void> createOrConfirmBooking({
     required ClassTemplate template,
     required DateTime date,
     required String userId,
   }) async {
-    final ref = _bookingRef(
-      templateId: template.id,
-      date: date,
-      userId: userId,
-    );
+    // construir sessionAt a partir de date + startTime ("HH:mm")
+    final parts = template.startTime.split(':');
+    final h = int.tryParse(parts.elementAt(0)) ?? 0;
+    final m = int.tryParse(parts.elementAt(1)) ?? 0;
+    final sessionAt = DateTime(date.year, date.month, date.day, h, m);
 
-    final sessionAt = _sessionDateTime(date, template.startTime);
+    final ref = bookingRef(template, date, userId);
 
     await ref.set({
       'userId': userId,
       'classTemplateId': template.id,
       'className': template.name,
-      'date': yyyy_mm_dd(date),      // "YYYY-MM-DD"
-      'time': template.startTime,    // "HH:mm"
-      'sessionAt': Timestamp.fromDate(sessionAt), // <--- IMPORTANTE
+      'date': yyyy_mm_dd(date),     // "YYYY-MM-DD"
+      'time': template.startTime,   // "HH:mm"
+      'sessionAt': Timestamp.fromDate(sessionAt),
       'status': 'confirmed',
       'createdAt': FieldValue.serverTimestamp(),
+      // extras úteis
+      'weekday': template.weekday,
+      'capacity': template.capacity,
+      'durationMin': template.durationMin,
     }, SetOptions(merge: true));
   }
 
-  /// Cancela a inscrição do utilizador (usando objeto ClassTemplate).
+  /// Cancela a inscrição do utilizador para a sessão (via objeto).
+  /// (Regras só permitem atualizar 'status' e 'cancelledAt')
   Future<void> cancelBooking({
     required ClassTemplate template,
     required DateTime date,
     required String userId,
   }) async {
-    await cancelBookingByKey(
-      templateId: template.id,
-      date: date,
-      userId: userId,
-    );
-  }
-
-  /// Cancela a inscrição do utilizador (usando apenas chaves).
-  Future<void> cancelBookingByKey({
-    required String templateId,
-    required DateTime date,
-    required String userId,
-  }) async {
-    final ref = _bookingRef(
-      templateId: templateId,
-      date: date,
-      userId: userId,
-    );
-
-    final snap = await ref.get();
-    if (!snap.exists) return; // nada a cancelar
-
+    final ref = bookingRef(template, date, userId);
     await ref.update({
       'status': 'cancelled',
       'cancelledAt': FieldValue.serverTimestamp(),
     });
   }
 
-  /// Stream do estado do utilizador para este template+data.
-  /// devolve: null (sem inscrição/ cancelada) | 'confirmed'
+  /// Cancela usando a chave {templateId}_{YYYY-MM-DD}_{uid}.
+  /// Aceita 'date' (DateTime) OU 'dateStr' ("YYYY-MM-DD") e
+  /// aceita 'uid' OU 'userId' (alias para compatibilidade com a UI).
+  Future<void> cancelBookingByKey({
+    required String templateId,
+    DateTime? date,
+    String? dateStr,
+    String? uid,
+    String? userId,
+  }) async {
+    assert(date != null || dateStr != null,
+    'Fornece "date" (DateTime) ou "dateStr" (YYYY-MM-DD)');
+    final effectiveUid = uid ?? userId;
+    assert(effectiveUid != null, 'Fornece "uid" ou "userId".');
+
+    final ds = dateStr ?? yyyy_mm_dd(date!);
+    final id = bookingDocIdFromParts(
+      templateId: templateId,
+      dateStr: ds,
+      uid: effectiveUid!,
+    );
+    final ref = _db.collection('classBooking').doc(id);
+    await ref.update({
+      'status': 'cancelled',
+      'cancelledAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Stream do estado do utilizador na sessão: null | 'confirmed'
   Stream<String?> myStatusStream({
     required ClassTemplate template,
     required DateTime date,
     required String userId,
   }) {
-    final ref = _bookingRef(
-      templateId: template.id,
-      date: date,
-      userId: userId,
-    );
-
-    return ref.snapshots().map((snap) {
+    return bookingRef(template, date, userId).snapshots().map((snap) {
       if (!snap.exists) return null;
-      final status = snap.data()?['status'] as String?;
-      if (status == null || status == 'cancelled') return null;
-      return status; // 'confirmed'
+      final st = snap.data()?['status'] as String?;
+      if (st == null || st == 'cancelled') return null;
+      return st; // 'confirmed'
     });
   }
 
-  /// Stream das MINHAS inscrições futuras (date >= hoje), ordenadas por data/hora.
-  /// Filtra no cliente por status != 'cancelled' para evitar mostrar canceladas.
-  Stream<List<Map<String, dynamic>>> myUpcomingBookingsStream(String userId) {
-    final today = yyyy_mm_dd(DateTime.now());
+  /// Stream das TUAS inscrições como lista de maps (o ecrã espera este tipo).
+  Stream<List<Map<String, dynamic>>> myUpcomingBookingsStream(String uid) {
     return _db
         .collection('classBooking')
-        .where('userId', isEqualTo: userId)
-        .where('date', isGreaterThanOrEqualTo: today)
+        .where('userId', isEqualTo: uid)
         .snapshots()
         .map((qs) {
-      final items = qs.docs
-          .map((d) => d.data())
-          .where((m) => (m['status'] ?? '') != 'cancelled')
+      return qs.docs
+          .map((d) => {
+        'id': d.id,
+        ...d.data(),
+      })
           .toList();
-
-      items.sort((a, b) {
-        final da = (a['date'] as String?) ?? '';
-        final db = (b['date'] as String?) ?? '';
-        final ta = (a['time'] as String?) ?? '';
-        final tb = (b['time'] as String?) ?? '';
-        final cmp = da.compareTo(db);
-        return cmp != 0 ? cmp : ta.compareTo(tb);
-      });
-      return items;
     });
   }
 }

@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import 'schedule_repo.dart';
 import 'models.dart';
 import 'date_utils.dart';
@@ -17,7 +18,7 @@ class _WeekScheduleViewState extends State<WeekScheduleView>
     with SingleTickerProviderStateMixin {
   late DateTime _monday;
   late TabController _tab;
-  final _repo = ScheduleRepo();
+  final ScheduleRepo _repo = ScheduleRepo();
 
   Future<List<ClassTemplate>>? _future;
 
@@ -36,19 +37,15 @@ class _WeekScheduleViewState extends State<WeekScheduleView>
   void _load() {
     final fut = _repo.fetchActiveTemplates();
     if (!mounted) return;
-    setState(() {
-      _future = fut;
-    });
+    setState(() => _future = fut);
   }
 
   void _prevWeek() {
-    _monday = _monday.subtract(const Duration(days: 7));
-    setState(() {}); // refaz datas mostradas
+    setState(() => _monday = _monday.subtract(const Duration(days: 7)));
   }
 
   void _nextWeek() {
-    _monday = _monday.add(const Duration(days: 7));
-    setState(() {});
+    setState(() => _monday = _monday.add(const Duration(days: 7)));
   }
 
   @override
@@ -90,11 +87,15 @@ class _WeekScheduleViewState extends State<WeekScheduleView>
           }
           final templates = snap.data ?? [];
 
-          // separa por weekday (1..7)
-          final byDay = List.generate(7, (i) => <ClassTemplate>[]);
+          // agrupa por weekday (1..7)
+          final byDay = List.generate(7, (_) => <ClassTemplate>[]);
           for (final t in templates) {
             final idx = (t.weekday.clamp(1, 7)) - 1;
             byDay[idx].add(t);
+          }
+          // ordena por hora dentro do dia
+          for (final list in byDay) {
+            list.sort((a, b) => a.startTime.compareTo(b.startTime));
           }
 
           return TabBarView(
@@ -111,7 +112,10 @@ class _WeekScheduleViewState extends State<WeekScheduleView>
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, idx) {
                   final t = list[idx];
-                  return _TemplateCard(template: t, dateOfThisWeekDay: d);
+                  return TemplateCard(
+                    template: t,
+                    dateOfThisWeekDay: d,
+                  );
                 },
               );
             }),
@@ -122,8 +126,10 @@ class _WeekScheduleViewState extends State<WeekScheduleView>
   }
 }
 
-class _TemplateCard extends StatelessWidget {
-  const _TemplateCard({
+/// Versão stateful com estado local para feedback instantâneo.
+class TemplateCard extends StatefulWidget {
+  const TemplateCard({
+    super.key,
     required this.template,
     required this.dateOfThisWeekDay,
   });
@@ -132,27 +138,44 @@ class _TemplateCard extends StatelessWidget {
   final DateTime dateOfThisWeekDay;
 
   @override
-  Widget build(BuildContext context) {
-    final subtitle = _formatCardDate(dateOfThisWeekDay, template.startTime);
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    final svc = ClassBookingService();
+  State<TemplateCard> createState() => _TemplateCardState();
+}
 
-    // Estado do utilizador nesta aula/data (null | 'confirmed')
+class _TemplateCardState extends State<TemplateCard> {
+  final _svc = ClassBookingService();
+  String? _localStatus; // null | 'confirmed'
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = _formatCardDate(widget.dateOfThisWeekDay, widget.template.startTime);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    // stream do estado remoto
     final status$ = (uid == null)
         ? const Stream<String?>.empty()
-        : svc.myStatusStream(
-      template: template,
-      date: dateOfThisWeekDay,
+        : _svc.myStatusStream(
+      template: widget.template,
+      date: widget.dateOfThisWeekDay,
       userId: uid,
     );
 
-    // Bloquear inscrições no passado (data/hora já decorridas)
-    final isPastSession = _isSessionInThePast(dateOfThisWeekDay, template.startTime);
+    final isPastSession =
+    _isSessionInThePast(widget.dateOfThisWeekDay, widget.template.startTime);
 
     return StreamBuilder<String?>(
       stream: status$,
       builder: (context, s) {
-        final status = s.data; // null | 'confirmed'
+        final remoteStatus = s.data; // null | 'confirmed'
+        // se tivermos estado local, dá prioridade (feedback imediato)
+        final effectiveStatus = _localStatus ?? remoteStatus;
+
+        // Se o stream trouxe um valor diferente e não temos override local,
+        // ainda assim refaz o UI (normalmente o StreamBuilder já o faz).
+        // Opcional: se quiseres "limpar" o override quando o remoto chegar:
+        if (_localStatus != null && remoteStatus == _localStatus) {
+          // limpa o override após confirmação do backend
+          _localStatus = null;
+        }
 
         return Card(
           elevation: 2,
@@ -160,101 +183,118 @@ class _TemplateCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CircleAvatar(
                   radius: 24,
-                  child: Text(template.startTime, style: const TextStyle(fontSize: 12)),
+                  child: Text(widget.template.startTime, style: const TextStyle(fontSize: 12)),
                 ),
                 const SizedBox(width: 12),
-                // Infos
+
+                // Infos à esquerda
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(template.name,
+                      Text(widget.template.name,
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       Text(subtitle, style: TextStyle(color: Colors.grey[700])),
                       const SizedBox(height: 6),
+
                       if (isPastSession)
                         const Text(
                           'Realizada',
-                          style: TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
                         )
-                      else if (status != null)
-                        Text(
-                          '✅ Inscrito',
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      else if (effectiveStatus == 'confirmed')
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.check_box, size: 18, color: Colors.green),
+                            SizedBox(width: 6),
+                            Text(
+                              'Inscrito',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                // Ações
-                Column(
-                  children: [
-                    // Se a sessão já passou: mostrar botão desativado estático
-                    if (isPastSession)
-                      ElevatedButton(
-                        onPressed: null, // completamente inativo
-                        child: const Text('Encerrada'),
-                      )
-                    else ...[
-                      if (uid != null && status == null)
-                        ElevatedButton(
-                          onPressed: () async {
-                            try {
-                              await svc.createOrConfirmBooking(
-                                template: template,
-                                date: dateOfThisWeekDay,
-                                userId: uid,
+
+                // Ações à direita
+                if (isPastSession)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: ElevatedButton(
+                      onPressed: null,
+                      child: Text('Encerrada'),
+                    ),
+                  )
+                else if (uid != null && effectiveStatus == null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        try {
+                          await _svc.createOrConfirmBooking(
+                            template: widget.template,
+                            date: widget.dateOfThisWeekDay,
+                            userId: uid,
+                          );
+                          // feedback imediato
+                          setState(() {
+                            _localStatus = 'confirmed';
+                          });
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Inscrição criada.')),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(SnackBar(content: Text('$e')));
+                          }
+                        }
+                      },
+                      child: const Text('Inscrever'),
+                    ),
+                  )
+                else if (uid != null && effectiveStatus == 'confirmed')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: TextButton(
+                        onPressed: () async {
+                          try {
+                            await _svc.cancelBooking(
+                              template: widget.template,
+                              date: widget.dateOfThisWeekDay,
+                              userId: uid,
+                            );
+                            // feedback imediato
+                            setState(() {
+                              _localStatus = null;
+                            });
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Inscrição cancelada.')),
                               );
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Inscrição criada.')),
-                                );
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(SnackBar(content: Text('$e')));
-                              }
                             }
-                          },
-                          child: const Text('Inscrever'),
-                        ),
-                      if (uid != null && status != null)
-                        TextButton(
-                          onPressed: () async {
-                            try {
-                              await svc.cancelBooking(
-                                template: template,
-                                date: dateOfThisWeekDay,
-                                userId: uid,
-                              );
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Inscrição cancelada.')),
-                                );
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(SnackBar(content: Text('$e')));
-                              }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(content: Text('$e')));
                             }
-                          },
-                          child: const Text('Cancelar'),
-                        ),
-                    ],
-                  ],
-                ),
+                          }
+                        },
+                        child: const Text('Cancelar'),
+                      ),
+                    ),
               ],
             ),
           ),
@@ -267,17 +307,14 @@ class _TemplateCard extends StatelessWidget {
   String _formatCardDate(DateTime d, String time) {
     final weekdayShort = DateFormat.E('pt_PT').format(d);
     final dayMonth = DateFormat('dd/MM/yyyy').format(d);
-    return '$weekdayShort, $dayMonth | $time';
+    return '$weekdayShort \n$dayMonth \n$time';
   }
 
-  /// Considera passada se a combinação data+hora já é anterior ao agora.
   bool _isSessionInThePast(DateTime day, String hhmm) {
-    // hhmm = "18:30"
     final parts = hhmm.split(':');
     final h = int.tryParse(parts.elementAt(0)) ?? 0;
     final m = int.tryParse(parts.elementAt(1)) ?? 0;
     final sessionDateTime = DateTime(day.year, day.month, day.day, h, m);
-    final now = DateTime.now();
-    return sessionDateTime.isBefore(now);
+    return sessionDateTime.isBefore(DateTime.now());
   }
 }
