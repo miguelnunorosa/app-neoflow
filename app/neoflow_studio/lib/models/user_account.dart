@@ -1,34 +1,32 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserAccount {
-  final String uid;
-  final String firstName;
-  final String lastName;
+  final String id;
+  final String displayName;
   final String email;
   final String? photoUrl;
   final bool isActive;
-
-  String get displayName =>
-      [firstName, lastName].where((s) => s.trim().isNotEmpty).join(' ').trim();
+  final DocumentReference? userProfile; // referência ao perfil
 
   UserAccount({
-    required this.uid,
-    required this.firstName,
-    required this.lastName,
+    required this.id,
+    required this.displayName,
     required this.email,
-    required this.isActive,
     this.photoUrl,
+    required this.isActive,
+    this.userProfile,
   });
 
-  factory UserAccount.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final d = doc.data()!;
+  factory UserAccount.fromFirestore(
+      DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
     return UserAccount(
-      uid: doc.id,
-      firstName: (d['firstName'] ?? '') as String,
-      lastName: (d['lastName'] ?? '') as String,
-      email: (d['email'] ?? '') as String,
-      isActive: (d['isActive'] ?? false) as bool,
-      photoUrl: d['photo'] as String?,
+      id: doc.id,
+      displayName: data['displayName'] ?? '',
+      email: data['email'] ?? '',
+      photoUrl: data['photoUrl'],
+      isActive: data['isActive'] ?? true,
+      userProfile: data['userProfile'],
     );
   }
 }

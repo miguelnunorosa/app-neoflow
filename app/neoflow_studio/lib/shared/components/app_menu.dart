@@ -1,24 +1,39 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:neoflow_studio/core/constants.dart';
-import 'package:neoflow_studio/features/schedule/my_bookings_view.dart';
 
 import '../../data/user_repo.dart';
 import '../../models/user_account.dart';
+
+// Screens
 import '../../features/schedule/week_view.dart';
+import '../../features/schedule/my_bookings_view.dart';
+// TODO: quando tiveres o ecrã de gestão, importa-o aqui.
+// import '../../features/admin/class_templates_admin_view.dart';
 
 class AppMenu extends StatelessWidget {
   const AppMenu({super.key});
 
+  String _initials(String nameOrEmail) {
+    final s = nameOrEmail.trim();
+    if (s.isEmpty) return '?';
+    final parts = s.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final repo = UserRepo();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
     return Drawer(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Header com dados do Firestore
           StreamBuilder<UserAccount?>(
-            stream: UserRepo().currentUserStream(),
+            stream: repo.currentUserStream(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const SizedBox(
@@ -29,7 +44,7 @@ class AppMenu extends StatelessWidget {
               final ua = snap.data;
               final name = (ua == null || ua.displayName.isEmpty)
                   ? 'Utilizador'
-                  : ua.displayName;
+                  : ua.firstName;
               final email = ua?.email ?? 'email não disponível';
               final photoUrl = ua?.photoUrl;
 
@@ -48,11 +63,13 @@ class AppMenu extends StatelessWidget {
                   backgroundImage: imgProvider,
                   backgroundColor: Colors.white,
                   child: (photoUrl == null || photoUrl.isEmpty)
-                      ? Text(_initials(name),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ))
+                      ? Text(
+                    _initials(name),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  )
                       : null,
                 ),
                 otherAccountsPictures: [
@@ -82,13 +99,16 @@ class AppMenu extends StatelessWidget {
 
                 // Agendamento (bloqueado se a conta estiver inativa)
                 StreamBuilder<UserAccount?>(
-                  stream: UserRepo().currentUserStream(),
+                  stream: repo.currentUserStream(),
                   builder: (context, snap) {
-                    final isActive = snap.data?.isActive ?? false;
+                    final ua = snap.data;
+                    final isActive = ua?.isActive ?? false;
                     return ListTile(
                       leading: const Icon(Icons.calendar_today),
                       title: const Text('Agendamento'),
-                      subtitle: isActive ? null : const Text(
+                      subtitle: isActive
+                          ? null
+                          : const Text(
                         'Conta inativa',
                         style: TextStyle(color: Colors.red),
                       ),
@@ -97,13 +117,17 @@ class AppMenu extends StatelessWidget {
                           ? () {
                         Navigator.pop(context);
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const WeekScheduleView()),
+                          MaterialPageRoute(
+                            builder: (_) => const WeekScheduleView(),
+                          ),
                         );
                       }
                           : () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('A tua conta está inativa. Contacta o estúdio.'),
+                            content: Text(
+                              'A tua conta está inativa. Contacta o estúdio.',
+                            ),
                           ),
                         );
                       },
@@ -113,6 +137,7 @@ class AppMenu extends StatelessWidget {
 
                 ListTile(
                   leading: const Icon(Icons.event_note),
+                  // (Se preferires renomear para 'Minhas inscrições')
                   title: const Text('Aulas Anteriores'),
                   onTap: () {
                     Navigator.pop(context);
@@ -130,6 +155,44 @@ class AppMenu extends StatelessWidget {
                     // TODO: navegar para contactos
                   },
                 ),
+
+                const Divider(),
+
+                // ===== Secção ADMIN (via UserRepo().isAdmin(uid)) =====
+                if (uid != null)
+                  FutureBuilder<bool>(
+                    future: repo.isAdmin(uid),
+                    builder: (context, snap) {
+                      final isAdmin = snap.data == true;
+                      if (!isAdmin) return const SizedBox.shrink();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: Text(
+                              'Admin',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.edit_calendar, color: APP_PRIMARY_COLOR),
+                            title: const Text('Gerir aulas'),
+                            onTap: () {
+                              Navigator.pop(context);
+                              // TODO: abrir ecrã de gestão de classTemplates
+                              // Navigator.of(context).push(
+                              //   MaterialPageRoute(builder: (_) => const ClassTemplatesAdminView()),
+                              // );
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  ),
               ],
             ),
           ),
@@ -146,13 +209,5 @@ class AppMenu extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _initials(String nameOrEmail) {
-    final s = nameOrEmail.trim();
-    if (s.isEmpty) return '?';
-    final parts = s.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 }
