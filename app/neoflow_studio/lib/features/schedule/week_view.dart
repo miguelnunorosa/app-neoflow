@@ -1,9 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'schedule_repo.dart';
 import 'models.dart';
 import 'date_utils.dart';
+import 'class_booking_service.dart'; // <-- usa o service plano
 
 class WeekScheduleView extends StatefulWidget {
   const WeekScheduleView({super.key});
@@ -42,7 +44,7 @@ class _WeekScheduleViewState extends State<WeekScheduleView>
 
   void _prevWeek() {
     _monday = _monday.subtract(const Duration(days: 7));
-    setState(() {}); // só para refazer as datas mostradas
+    setState(() {}); // refaz datas mostradas
   }
 
   void _nextWeek() {
@@ -133,40 +135,113 @@ class _TemplateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subtitle = _formatCardDate(dateOfThisWeekDay, template.startTime);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final svc = ClassBookingService();
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 24,
-              child: Text(template.startTime, style: const TextStyle(fontSize: 12)),
+    // Estado do utilizador nesta aula/data (null | 'confirmed')
+    final status$ = (uid == null)
+        ? const Stream<String?>.empty()
+        : svc.myStatusStream(
+      template: template,
+      date: dateOfThisWeekDay,
+      userId: uid,
+    );
+
+    return StreamBuilder<String?>(
+      stream: status$,
+      builder: (context, s) {
+        final status = s.data; // null | 'confirmed'
+
+        return Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  child: Text(template.startTime, style: const TextStyle(fontSize: 12)),
+                ),
+                const SizedBox(width: 12),
+                // Infos
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(template.name,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(subtitle, style: TextStyle(color: Colors.grey[700])),
+                      const SizedBox(height: 6),
+                      if (status != null)
+                        Text(
+                          '✅ Inscrito',
+                          style: TextStyle(
+                            color: Colors.green[700],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Ações
+                Column(
+                  children: [
+                    if (uid != null && status == null)
+                      ElevatedButton(
+                        onPressed: () async {
+                          try {
+                            await svc.createOrConfirmBooking(
+                              template: template,
+                              date: dateOfThisWeekDay,
+                              userId: uid,
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Inscrição criada.')),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(content: Text('$e')));
+                            }
+                          }
+                        },
+                        child: const Text('Inscrever'),
+                      ),
+                    if (uid != null && status != null)
+                      TextButton(
+                        onPressed: () async {
+                          try {
+                            await svc.cancelBooking(
+                              template: template,
+                              date: dateOfThisWeekDay,
+                              userId: uid,
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Inscrição cancelada.')),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(content: Text('$e')));
+                            }
+                          }
+                        },
+                        child: const Text('Cancelar'),
+                      ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(template.name,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: TextStyle(color: Colors.grey[700])),
-                  const SizedBox(height: 6),
-                  // podes mostrar capacidade se tiveres no template:
-                  if (template.capacity case final cap?)
-                    Text('Capacidade: $cap'),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            // por agora só mostramos; quando ligares reservas, mete os botões aqui
-            Icon(Icons.event_available, color: Colors.green[700]),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -174,6 +249,5 @@ class _TemplateCard extends StatelessWidget {
     final weekdayShort = DateFormat.E('pt_PT').format(d); // Seg, Ter, ...
     final dayMonth = DateFormat('dd/MM/yyyy').format(d);
     return '$weekdayShort, $dayMonth | $time';
-    // se preferires sem data (só hora fixa), troca por: 'Todas as $time'
   }
 }
