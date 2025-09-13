@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:neoflow_studio/core/constants.dart';
+import 'package:neoflow_studio/features/schedule/my_bookings_view.dart';
 
 import '../../data/user_repo.dart';
 import '../../models/user_account.dart';
@@ -111,13 +112,16 @@ class AppMenu extends StatelessWidget {
                 ),
 
                 ListTile(
-                  leading: const Icon(Icons.history),
-                  title: const Text('Aulas anteriores'),
+                  leading: const Icon(Icons.event_note),
+                  title: const Text('Aulas Anteriores'),
                   onTap: () {
                     Navigator.pop(context);
-                    // TODO: navegar para histórico
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const MyBookingsView()),
+                    );
                   },
                 ),
+
                 ListTile(
                   leading: const Icon(Icons.contacts),
                   title: const Text('Contactos'),
